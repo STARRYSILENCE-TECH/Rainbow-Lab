@@ -276,63 +276,71 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ inputY, setInputY, 
   };
   
   // Render annotated points for single-track mode
-  const renderEventPoints = () => {
-      // Only for single track modes
+  const renderAnnotations = () => {
+      // Don't show in Dual mode to keep it clean
       if (microMode === 'dual') return null;
 
       // Use the middle ray (index 2 - Yellow) for positioning text centrally
       const ray = microMode === 'primary' ? primaryRays[2] : secondaryRays[2];
-      const labels = [];
+      
+      // Story Bubble Component
+      const StoryBubble = ({ x, y, title, text, align="left" }: any) => {
+          // Adjust position to not cover the point
+          const bubbleX = align === 'left' ? x + 20 : x - 180;
+          const bubbleY = y - 40;
+          
+          return (
+              <foreignObject x={bubbleX} y={bubbleY} width="160" height="100" style={{ overflow: 'visible' }}>
+                  <div className={`
+                    bg-slate-900/90 border border-slate-600 rounded-lg p-2 shadow-xl backdrop-blur-sm
+                    text-xs transform transition-all duration-500 animate-in fade-in slide-in-from-bottom-2
+                    ${align === 'left' ? 'origin-top-left' : 'origin-top-right'}
+                  `}>
+                      <h4 className="font-bold text-sky-400 mb-1">{title}</h4>
+                      <p className="text-slate-200 leading-tight">{text}</p>
+                      {/* Arrow indicator */}
+                      <div className={`absolute top-1/2 ${align === 'left' ? '-left-2 border-r-slate-600 border-r-8' : '-right-2 border-l-slate-600 border-l-8'} -mt-2 border-y-8 border-y-transparent h-0 w-0`}></div>
+                  </div>
+              </foreignObject>
+          );
+      };
 
-      // Common style for label
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const TextLabel = ({ x, y, text, align = "middle", dy = -10 }: any) => (
-          <g transform={`translate(${x}, ${y})`} className="pointer-events-none">
-              <circle r="4" fill="#fbbf24" stroke="#0f172a" strokeWidth="1.5" />
-              <text y={dy} textAnchor={align} fill="#fbbf24" fontSize="11" fontWeight="bold" 
-                    style={{ textShadow: "0px 1px 3px #000" }}>
-                  {text}
-              </text>
-          </g>
-      );
+      const elements = [];
 
       // Primary Sequence
       if (microMode === 'primary') {
-          // Step 1: Entry Refraction
-          if (step >= 1) {
-             labels.push(<TextLabel key="p1" x={ray.entry.x} y={ray.entry.y} text="1.折射" align="end" dy={-10} />);
+          if (step === 1) {
+             elements.push(<StoryBubble key="p1" x={ray.entry.x} y={ray.entry.y} title="1. 发生折射" text="光线进入水滴，因为速度变慢而发生了‘弯折’！" align="right" />);
           }
-          // Step 2: Back Reflection
-          if (step >= 2) {
-             labels.push(<TextLabel key="p2" x={ray.back.x} y={ray.back.y} text="2.反射" align="start" dy={-10} />);
+          if (step === 2) {
+             elements.push(<StoryBubble key="p2" x={ray.back.x} y={ray.back.y} title="2. 发生反射" text="就像撞到了墙壁，光线在水滴内部反弹回来。" />);
           }
-          // Step 3: Exit Refraction
           if (step >= 3) {
-             labels.push(<TextLabel key="p3" x={ray.exit.x} y={ray.exit.y} text="3.折射" align="end" dy={15} />);
+             if (step === 3) { // Only show bubble on step 3
+                elements.push(<StoryBubble key="p3" x={ray.exit.x} y={ray.exit.y} title="3. 主虹诞生" text="光线钻出水滴，红光和紫光因为弯折角度不同而分开啦！" align="right" />);
+             }
           }
       }
 
       // Secondary Sequence
       if (microMode === 'secondary') {
-          // Step 1: Entry Refraction
-          if (step >= 1) {
-             labels.push(<TextLabel key="s1" x={ray.entry.x} y={ray.entry.y} text="1.折射" align="end" dy={15} />);
+          if (step === 1) {
+             elements.push(<StoryBubble key="s1" x={ray.entry.x} y={ray.entry.y} title="1. 底部折射" text="副虹的光线通常从水滴的下半部分进入。" align="right" />);
           }
-          // Step 2: Back 1 Reflection
-          if (step >= 2) {
-             labels.push(<TextLabel key="s2" x={ray.back.x} y={ray.back.y} text="2.反射" align="start" dy={-10} />);
+          if (step === 2) {
+             elements.push(<StoryBubble key="s2" x={ray.back.x} y={ray.back.y} title="2. 第一次反射" text="光线撞击水滴后壁上方，被弹向前方。" />);
           }
-           // Step 3: Back 2 Reflection
-          if (step >= 3 && ray.back2) {
-             labels.push(<TextLabel key="s3" x={ray.back2.x} y={ray.back2.y} text="3.反射" align="middle" dy={-12} />);
+           if (step === 3 && ray.back2) {
+             elements.push(<StoryBubble key="s3" x={ray.back2.x} y={ray.back2.y} title="3. 第二次反射" text="还没出去！光线又撞到了顶部。每次撞击都会让光线变暗一点。" align="middle" />);
           }
-          // Step 4: Exit Refraction
           if (step >= 4) {
-             labels.push(<TextLabel key="s4" x={ray.exit.x} y={ray.exit.y} text="4.折射" align="start" dy={-10} />);
+             if (step === 4) {
+                elements.push(<StoryBubble key="s4" x={ray.exit.x} y={ray.exit.y} title="4. 副虹诞生" text="经过两次反射，颜色的排列顺序刚好反过来了！" align="left" />);
+             }
           }
       }
       
-      return <g>{labels}</g>;
+      return <g>{elements}</g>;
   };
 
   // Label Generation based on mode
@@ -486,8 +494,8 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ inputY, setInputY, 
             )}
         </g>
         
-        {/* --- EVENT LABELS (New) --- */}
-        {renderEventPoints()}
+        {/* --- DYNAMIC ANNOTATIONS (Bubbles & Pulses) --- */}
+        {renderAnnotations()}
 
         {/* --- DRAGGABLE CONTROLS --- */}
         <g onPointerDown={handlePointerDown} className="cursor-grab active:cursor-grabbing hover:brightness-110 transition-all">
