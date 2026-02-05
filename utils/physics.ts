@@ -2,7 +2,10 @@
 // Refractive indices for water roughly
 export const REFRACTIVE_INDEX_AIR = 1.0003;
 export const REFRACTIVE_INDEX_RED = 1.331;
+export const REFRACTIVE_INDEX_ORANGE = 1.332;
+export const REFRACTIVE_INDEX_YELLOW = 1.333;
 export const REFRACTIVE_INDEX_GREEN = 1.335;
+export const REFRACTIVE_INDEX_BLUE = 1.338;
 export const REFRACTIVE_INDEX_VIOLET = 1.343;
 
 export interface Point {

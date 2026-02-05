@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 
 interface ExplanationPanelProps {
@@ -16,34 +15,34 @@ interface ExplanationPanelProps {
 
 const microSteps = [
   {
-    title: "1. 阳光入场 (Sunlight)",
-    content: "想象一束白色的阳光（包含了所有颜色）照射到空中的小水滴上。为了看到彩虹，太阳必须在你的身后，而雨在你的前方。",
-    highlight: "尝试上方滑块改变阳光位置！"
+    title: "1. 双路进击 (Dual Entry)",
+    content: "为了看懂主虹和副虹的区别，我们同时追踪两束阳光。上方的光束（A）将形成主虹，下方的光束（B）将形成副虹。注意：它们进入水滴的位置是相反的！",
+    highlight: "光线 A 射向水滴上半部，光线 B 射向水滴下半部。"
   },
   {
-    title: "2. 折射与色散 (Refraction)",
-    content: "当光线从空气进入水中时，它会减速并改变方向，这叫**折射**。不同颜色的光弯曲程度不同：红光弯得少，紫光弯得多。这就像棱镜一样把白光拆开了！",
-    highlight: "看！白光分成了彩色光束。"
+    title: "2. 折射入水 (Refraction)",
+    content: "两束光线进入水滴，发生第一次**折射**。由于水比空气“稠密”，光线都向中心法线方向弯曲。此时白光开始轻微散开。",
+    highlight: "看！它们都钻进了水滴肚子里。"
   },
   {
-    title: "3. 内部反射 (Reflection)",
-    content: "光线撞到了水滴的后壁。就像照镜子一样，大部分光线被**反射**回来，继续在水滴内部旅行。",
-    highlight: "光线在水滴内部掉了个头。"
+    title: "3. 第一次反射 (Reflection 1)",
+    content: "光线撞到了水滴的后壁。就像撞球一样，它们都被反弹了回来。这是它们共同经历的第一次反射。",
+    highlight: "目前为止，两束光的经历还是一样的。"
   },
   {
-    title: "4. 出射主虹 (Primary Rainbow)",
-    content: "光线离开水滴再次折射。红光总是在与入射光成约42°角的方向射出。无数个这样的水滴组合起来，就形成了我们眼中的主虹（颜色：外红内紫）。",
-    highlight: "这是最常见的彩虹！"
+    title: "4. 分道扬镳 (The Divergence)",
+    content: "关键时刻！上方的光束（主虹）直接折射出去了。但是！下方的光束（副虹）角度太刁钻，它没有出去，而是撞向了水滴顶端，发生了**第二次反射**！",
+    highlight: "主虹逃走了，但副虹被困住多弹了一次。"
   },
   {
-    title: "5. 副虹诞生 (Secondary Rainbow)",
-    content: "看！同一束阳光照射整个水滴。射入**上方**的光形成了主虹，而射入**下方**的光在水滴内发生了**两次反射**，形成了副虹（霓）！多一次反射让光线更暗。",
-    highlight: "上进下出是主虹，下进上出是副虹。"
+    title: "5. 副虹出射 (Secondary Exit)",
+    content: "经过第二次反弹后，副虹的光束终于也折射出去了。因为多了一次反射，它的能量损失更多（更暗），而且出射方向更向上（约50-53度）。",
+    highlight: "副虹就像经历了更漫长的迷宫。"
   },
   {
-    title: "6. 颜色反转与排序 (Color Order)",
-    content: "仔细看光线出射处的图示！主虹因为只反射一次，保持**红在外圈，紫在内圈**。而副虹反射了两次，颜色顺序反转了，变成了**紫在外圈，红在内圈**。",
-    highlight: "注意看旁边的小图标，箭头指向内圈和外圈的方向。"
+    title: "6. 颜色大反转 (Color Inversion)",
+    content: "开启光谱！正是因为那多出来的一次反射，副虹的红紫排列顺序被完全**颠倒**了。主虹是“外红内紫”，而副虹变成了“外紫内红”。",
+    highlight: "点击“显示光谱”按钮，观察颜色的秘密！"
   }
 ];
 
@@ -93,8 +92,10 @@ const ExplanationPanel: React.FC<ExplanationPanelProps> = ({
           if (prev < maxSteps) {
              // Side effects for automation
              if(viewMode === 'micro') {
-                 if (prev + 1 >= 4 && !showSpectrum) setShowSpectrum(true);
-                 if (prev + 1 === 3) setInputY(90);
+                 // Step 5 corresponds to index 5. Enable spectrum there.
+                 if (prev + 1 === 5) setShowSpectrum(true);
+                 // Reset spectrum if we loop back or strict control needed
+                 // if (prev + 1 < 5) setShowSpectrum(false);
              }
              return prev + 1;
           } else {
@@ -111,11 +112,17 @@ const ExplanationPanel: React.FC<ExplanationPanelProps> = ({
       setViewMode(mode);
       setStep(0); 
       setIsPlaying(false);
+      // Reset micro view state
+      if (mode === 'micro') {
+          setShowSpectrum(false);
+          setInputY(60);
+      }
   };
 
   const togglePlay = () => {
       if (!isPlaying && step === maxSteps) {
           setStep(0); // Restart if at end
+          if (viewMode === 'micro') setShowSpectrum(false);
       }
       setIsPlaying(!isPlaying);
   };
@@ -195,6 +202,8 @@ const ExplanationPanel: React.FC<ExplanationPanelProps> = ({
                 onClick={() => {
                     setStep(Math.max(0, step - 1));
                     setIsPlaying(false);
+                    // Hide spectrum if going back from last step in micro view
+                    if(viewMode === 'micro' && step === 5) setShowSpectrum(false);
                 }}
                 disabled={step === 0}
                 className="flex-1 py-3 rounded-lg border border-slate-600 text-slate-300 text-sm font-bold hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
@@ -205,9 +214,7 @@ const ExplanationPanel: React.FC<ExplanationPanelProps> = ({
                 onClick={() => {
                     if(step < maxSteps) {
                         setStep(step + 1);
-                        if(viewMode === 'micro' && !showSpectrum && step === 0) setShowSpectrum(true);
-                        if(viewMode === 'micro' && !showSpectrum && step >= 4) setShowSpectrum(true);
-                        if(viewMode === 'micro' && step === 3) setInputY(90);
+                        if(viewMode === 'micro' && step + 1 === 5) setShowSpectrum(true);
                         setIsPlaying(false);
                     }
                 }}
@@ -238,7 +245,7 @@ const ExplanationPanel: React.FC<ExplanationPanelProps> = ({
                 <div className="space-y-4">
                     <div>
                         <label className="flex justify-between text-sm font-bold text-sky-400 mb-2">
-                            <span className="flex items-center gap-2">☀️ 阳光位置 <span className="text-[10px] text-slate-500 font-normal">(Impact)</span></span>
+                            <span className="flex items-center gap-2">☀️ 阳光入射位置 <span className="text-[10px] text-slate-500 font-normal">(Impact)</span></span>
                             <span className="font-mono text-slate-300">{inputY.toFixed(1)}</span>
                         </label>
                         <input 

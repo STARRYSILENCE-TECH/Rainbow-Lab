@@ -1,12 +1,21 @@
-
 import React, { useRef, useState, useMemo } from 'react';
-import { calculateRayPath, calculateDoubleReflectionRayPath, REFRACTIVE_INDEX_RED, REFRACTIVE_INDEX_GREEN, REFRACTIVE_INDEX_VIOLET, RayPath } from '../utils/physics';
+import { 
+    calculateRayPath, 
+    calculateDoubleReflectionRayPath, 
+    REFRACTIVE_INDEX_RED, 
+    REFRACTIVE_INDEX_ORANGE,
+    REFRACTIVE_INDEX_YELLOW,
+    REFRACTIVE_INDEX_GREEN, 
+    REFRACTIVE_INDEX_BLUE,
+    REFRACTIVE_INDEX_VIOLET, 
+    RayPath 
+} from '../utils/physics';
 
 interface SimulationCanvasProps {
   inputY: number; // Controlled by slider
   setInputY: (y: number) => void;
   showSpectrum: boolean;
-  step: number; // 0-3: Primary only, 4-5: Both
+  step: number; // 0-5 for new synchronized flow
 }
 
 const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ inputY, setInputY, showSpectrum, step }) => {
@@ -16,8 +25,6 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ inputY, setInputY, 
   const centerY = 225; 
   const radius = 100;
   
-  const showSecondary = step >= 4;
-
   const svgRef = useRef<SVGSVGElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -69,102 +76,173 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ inputY, setInputY, 
   };
 
   // --- Calculations ---
-  const primaryRed = calculateRayPath(inputY, radius, REFRACTIVE_INDEX_RED, '#ef4444', centerX, centerY);
-  const primaryGreen = calculateRayPath(inputY, radius, REFRACTIVE_INDEX_GREEN, '#22c55e', centerX, centerY);
-  const primaryViolet = calculateRayPath(inputY, radius, REFRACTIVE_INDEX_VIOLET, '#a855f7', centerX, centerY);
+  // Define full spectrum colors
+  const spectrumColors = [
+      { n: REFRACTIVE_INDEX_RED, hex: '#ef4444' },     // Red
+      { n: REFRACTIVE_INDEX_ORANGE, hex: '#f97316' },  // Orange
+      { n: REFRACTIVE_INDEX_YELLOW, hex: '#eab308' },  // Yellow
+      { n: REFRACTIVE_INDEX_GREEN, hex: '#22c55e' },   // Green
+      { n: REFRACTIVE_INDEX_BLUE, hex: '#3b82f6' },    // Blue
+      { n: REFRACTIVE_INDEX_VIOLET, hex: '#a855f7' }   // Violet
+  ];
 
-  const secondaryRed = calculateDoubleReflectionRayPath(inputY, radius, REFRACTIVE_INDEX_RED, '#ef4444', centerX, centerY);
-  const secondaryGreen = calculateDoubleReflectionRayPath(inputY, radius, REFRACTIVE_INDEX_GREEN, '#22c55e', centerX, centerY);
-  const secondaryViolet = calculateDoubleReflectionRayPath(inputY, radius, REFRACTIVE_INDEX_VIOLET, '#a855f7', centerX, centerY);
+  // Calculate paths for Primary and Secondary
+  const primaryRays = spectrumColors.map(c => 
+    calculateRayPath(inputY, radius, c.n, c.hex, centerX, centerY)
+  );
+
+  const secondaryRays = spectrumColors.map(c => 
+    calculateDoubleReflectionRayPath(inputY, radius, c.n, c.hex, centerX, centerY)
+  );
 
   // Helper to clamp coordinates inside canvas (with padding)
   const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(max, val));
   
-  // Safe Label Positions
-  const primaryLabelX = clamp(primaryRed.end.x, 50, width - 120);
-  const primaryLabelY = clamp(primaryRed.end.y, 50, height - 30);
+  // Use Red ray for Label Position reference (Primary)
+  const primaryLabelRef = primaryRays[0];
+  const primaryLabelX = clamp(primaryLabelRef.end.x, 50, width - 120);
+  const primaryLabelY = clamp(primaryLabelRef.end.y, 50, height - 30);
   
-  const secondaryLabelX = clamp(secondaryRed.end.x, 50, width - 120);
-  const secondaryLabelY = clamp(secondaryRed.end.y, 50, height - 50);
+  // Use Red ray for Label Position reference (Secondary)
+  const secondaryLabelRef = secondaryRays[0];
+  const secondaryLabelX = clamp(secondaryLabelRef.end.x, 50, width - 120);
+  const secondaryLabelY = clamp(secondaryLabelRef.end.y, 50, height - 50);
 
-  const renderRaySegment = (path: RayPath, segmentStep: number, isSec: boolean) => {
+  /**
+   * New Synchronized Rendering Logic
+   */
+  const renderRaySegment = (path: RayPath, currentStep: number, isSec: boolean, index: number) => {
     const segments = [];
-    const strokeW = showSpectrum ? 2 : 3;
-    const strokeOp = isSec ? (showSpectrum ? 0.5 : 0.6) : (showSpectrum ? 0.8 : 0.9); 
+    // Increase thickness if spectrum to make it look like a continuous band
+    const strokeW = showSpectrum ? 3 : 2; 
+    const strokeOp = isSec ? (showSpectrum ? 0.6 : 0.5) : (showSpectrum ? 0.9 : 0.8); 
     
-    // Incoming
-    segments.push(
-      <line key={`seg1-${isSec}`} x1={path.start.x} y1={path.start.y} x2={path.entry.x} y2={path.entry.y}
-        stroke={showSpectrum ? path.color : "white"} strokeWidth={strokeW} strokeOpacity={strokeOp} />
-    );
+    // Distinguish Input Rays AND Internal Rays:
+    // Secondary Path (isSec=true) will be DASHED everywhere
+    // Primary Path (isSec=false) will be SOLID everywhere
+    const lineStyle = isSec ? "5 3" : "none"; 
+
+    // 1. Incoming (Visible from Start)
+    if (currentStep >= 0) {
+        segments.push(
+            <line key={`seg1-${isSec}-${index}`} 
+                x1={path.start.x} y1={path.start.y} 
+                x2={path.entry.x} y2={path.entry.y}
+                stroke={showSpectrum ? path.color : "white"} 
+                strokeWidth={strokeW} 
+                strokeOpacity={strokeOp} 
+                strokeDasharray={lineStyle}
+            />
+        );
+    }
     
-    // Internal 1
-    if (segmentStep >= 1) {
+    // 2. Refraction / Inside Leg 1 (Step 1+)
+    if (currentStep >= 1) {
       segments.push(
-        <line key={`seg2-${isSec}`} x1={path.entry.x} y1={path.entry.y} x2={path.back.x} y2={path.back.y}
-          stroke={path.color} strokeWidth={2} strokeOpacity={strokeOp} />
+        <line key={`seg2-${isSec}-${index}`} 
+            x1={path.entry.x} y1={path.entry.y} 
+            x2={path.back.x} y2={path.back.y}
+            stroke={path.color} 
+            strokeWidth={showSpectrum ? 2 : 2} 
+            strokeOpacity={strokeOp} 
+            strokeDasharray={lineStyle}
+        />
       );
     }
 
-    // Internal 2
-    if (segmentStep >= 2) {
-       if (isSec && path.back2) {
+    // 3. Reflection 1 (Step 2+)
+    if (currentStep >= 2) {
+       if (!isSec) {
            segments.push(
-                <line key={`seg3-sec-${isSec}`} x1={path.back.x} y1={path.back.y} x2={path.back2.x} y2={path.back2.y}
-                stroke={path.color} strokeWidth={2} strokeOpacity={strokeOp} />
+                <line key={`seg3-${isSec}-${index}`} 
+                    x1={path.back.x} y1={path.back.y} 
+                    x2={path.exit.x} y2={path.exit.y}
+                    stroke={path.color} strokeWidth={showSpectrum ? 2 : 2} strokeOpacity={strokeOp} 
+                    strokeDasharray={lineStyle}
+                />
            );
+       } else if (path.back2) {
            segments.push(
-                <line key={`seg4-sec-${isSec}`} x1={path.back2.x} y1={path.back2.y} x2={path.exit.x} y2={path.exit.y}
-                stroke={path.color} strokeWidth={2} strokeOpacity={strokeOp} />
-           );
-       } else {
-           segments.push(
-                <line key={`seg3-${isSec}`} x1={path.back.x} y1={path.back.y} x2={path.exit.x} y2={path.exit.y}
-                stroke={path.color} strokeWidth={2} strokeOpacity={strokeOp} />
+                <line key={`seg3-sec-${isSec}-${index}`} 
+                    x1={path.back.x} y1={path.back.y} 
+                    x2={path.back2.x} y2={path.back2.y}
+                    stroke={path.color} strokeWidth={showSpectrum ? 2 : 2} strokeOpacity={strokeOp} 
+                    strokeDasharray={lineStyle}
+                />
            );
        }
     }
 
-    // Exit
-    if ((!isSec && segmentStep >= 3) || (isSec && segmentStep >= 4)) {
-      segments.push(
-        <line key={`segExit-${isSec}`} x1={path.exit.x} y1={path.exit.y} x2={path.end.x} y2={path.end.y}
-          stroke={path.color} strokeWidth={isSec ? 2 : 4} strokeOpacity={isSec ? 0.6 : 1} />
-      );
+    // 4. Divergence (Step 3+)
+    if (currentStep >= 3) {
+      if (!isSec) {
+          // Primary Exit (Solid)
+          segments.push(
+            <line key={`segExit-${isSec}-${index}`} 
+                x1={path.exit.x} y1={path.exit.y} 
+                x2={path.end.x} y2={path.end.y}
+                stroke={path.color} strokeWidth={showSpectrum ? 4 : 4} strokeOpacity={1} 
+                strokeDasharray={lineStyle}
+            />
+          );
+      } else if (path.back2) {
+          // Secondary Internal Leg 3 (Dashed)
+          segments.push(
+            <line key={`seg4-sec-${isSec}-${index}`} 
+                x1={path.back2.x} y1={path.back2.y} 
+                x2={path.exit.x} y2={path.exit.y}
+                stroke={path.color} strokeWidth={showSpectrum ? 2 : 2} strokeOpacity={strokeOp} 
+                strokeDasharray={lineStyle}
+            />
+       );
+      }
+    }
+
+    // 5. Secondary Exit (Step 4+)
+    if (currentStep >= 4) {
+        if (isSec) {
+            segments.push(
+                <line key={`segExit-${isSec}-${index}`} 
+                    x1={path.exit.x} y1={path.exit.y} 
+                    x2={path.end.x} y2={path.end.y}
+                    stroke={path.color} strokeWidth={showSpectrum ? 3 : 2} strokeOpacity={0.7} 
+                    strokeDasharray={lineStyle}
+                />
+              );
+        }
     }
 
     return segments;
   };
 
   /**
-   * Renders a "Sky Slice" Legend next to the ray exit to show Inner vs Outer clearly.
+   * Renders a realistic spectrum legend without "Inner/Outer" labels.
    */
-  const renderOrderLegend = (x: number, y: number, isPrimary: boolean) => {
-      // Offset for drawing the mini-legend relative to the ray end
-      const lx = x + 15;
-      const ly = y - 30;
-
-      // Primary: Outer=Red, Inner=Violet. (Red is 'Higher' in angle, Visually Top here)
-      // Secondary: Outer=Violet, Inner=Red.
+  const renderSpectrumLegend = (x: number, y: number, isPrimary: boolean) => {
+      const lx = x + 20;
+      const ly = y - 25;
       
-      const topColor = isPrimary ? '#ef4444' : '#a855f7';
-      const bottomColor = isPrimary ? '#a855f7' : '#ef4444';
-      const topLabel = isPrimary ? '红' : '紫';
-      const bottomLabel = isPrimary ? '紫' : '红';
+      // Gradient definition is handled in <defs> below, we just use rects filled with gradient
+      // We need two distinct gradients: Red-Violet and Violet-Red
+      const gradId = isPrimary ? "gradPrimary" : "gradSecondary";
 
       return (
           <g transform={`translate(${lx}, ${ly})`} className="pointer-events-none">
-              <rect x="-5" y="-5" width="90" height="60" rx="4" fill="rgba(0,0,0,0.7)" stroke="#475569" strokeWidth="1"/>
+              {/* Background Box */}
+              <rect x="-10" y="-10" width="80" height="70" rx="6" fill="rgba(15, 23, 42, 0.9)" stroke="#475569" strokeWidth="1"/>
               
-              {/* Outer Arc Segment */}
-              <path d="M 0 0 Q 40 -10 80 0" fill="none" stroke={topColor} strokeWidth="4" />
-              <text x="85" y="4" fill={topColor} fontSize="10" fontWeight="bold">{topLabel}</text>
-              <text x="0" y="-12" fill="#94a3b8" fontSize="9">⬆️ 外圈 (Outer)</text>
-
-              {/* Inner Arc Segment */}
-              <path d="M 0 20 Q 40 10 80 20" fill="none" stroke={bottomColor} strokeWidth="4" />
-              <text x="85" y="24" fill={bottomColor} fontSize="10" fontWeight="bold">{bottomLabel}</text>
-              <text x="0" y="40" fill="#94a3b8" fontSize="9">⬇️ 内圈 (Inner)</text>
+              {/* Spectrum Strip */}
+              <rect x="15" y="0" width="30" height="50" rx="4" fill={`url(#${gradId})`} stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+              
+              {/* Labels */}
+              <text x="50" y="8" fill={isPrimary ? "#ef4444" : "#a855f7"} fontSize="10" fontWeight="bold">
+                  {isPrimary ? "红" : "紫"}
+              </text>
+              <text x="50" y="48" fill={isPrimary ? "#a855f7" : "#ef4444"} fontSize="10" fontWeight="bold">
+                  {isPrimary ? "紫" : "红"}
+              </text>
+              
+              <text x="30" y="65" textAnchor="middle" fill="#94a3b8" fontSize="9">光谱顺序</text>
           </g>
       );
   };
@@ -205,6 +283,24 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ inputY, setInputY, 
                 <stop offset="80%" stopColor="#f59e0b" />
                 <stop offset="100%" stopColor="#b45309" />
             </radialGradient>
+            
+            {/* Legend Gradients */}
+            <linearGradient id="gradPrimary" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#ef4444" />
+                <stop offset="20%" stopColor="#f97316" />
+                <stop offset="40%" stopColor="#eab308" />
+                <stop offset="60%" stopColor="#22c55e" />
+                <stop offset="80%" stopColor="#3b82f6" />
+                <stop offset="100%" stopColor="#a855f7" />
+            </linearGradient>
+             <linearGradient id="gradSecondary" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#a855f7" />
+                <stop offset="20%" stopColor="#3b82f6" />
+                <stop offset="40%" stopColor="#22c55e" />
+                <stop offset="60%" stopColor="#eab308" />
+                <stop offset="80%" stopColor="#f97316" />
+                <stop offset="100%" stopColor="#ef4444" />
+            </linearGradient>
         </defs>
         
         {/* Background Layer */}
@@ -217,53 +313,39 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ inputY, setInputY, 
         {/* Center Axis */}
         <line x1="0" y1={centerY} x2={centerX} y2={centerY} stroke="#334155" strokeDasharray="5 5" strokeWidth="1" />
 
-        {/* --- SUNLIGHT BEAM --- */}
-        {showSecondary ? (
-            <rect 
-                x="0" 
-                y={centerY - inputY} 
-                width={centerX - Math.sqrt(radius*radius - inputY*inputY)} 
-                height={inputY * 2} 
-                fill="url(#beamGradient)" 
-            />
-        ) : (
-            <rect 
-                x="0" 
-                y={centerY - inputY - 4} 
-                width={centerX - Math.sqrt(radius*radius - inputY*inputY)} 
-                height={8} 
-                fill="url(#beamGradient)" 
-            />
-        )}
+        {/* --- SUNLIGHT BEAM BACKGROUND (Optional, showing area) --- */}
+        <rect 
+            x="0" 
+            y={centerY - inputY} 
+            width={centerX - Math.sqrt(radius*radius - inputY*inputY)} 
+            height={inputY * 2} 
+            fill="url(#beamGradient)" 
+        />
+        
+        {/* Beam Input Labels */}
+        <g opacity="0.8">
+            <text x="10" y={centerY - inputY - 10} fill="#fbbf24" fontSize="11" fontWeight="bold">光线 A</text>
+            <text x="10" y={centerY + inputY + 20} fill="#fbbf24" fontSize="11" fontWeight="bold">光线 B</text>
+        </g>
 
         {/* Hero Drop */}
         <circle cx={centerX} cy={centerY} r={radius} fill="url(#dropGradient)" stroke="#38bdf8" strokeWidth="3" filter="drop-shadow(0 0 10px rgba(56, 189, 248, 0.3))" />
 
         {/* --- RAYS --- */}
         <g filter="url(#glow)">
-            {/* Primary Rays (Top) */}
-            {showSpectrum ? (
-                <>
-                    {renderRaySegment(primaryRed, step, false)}
-                    {renderRaySegment(primaryGreen, step, false)}
-                    {renderRaySegment(primaryViolet, step, false)}
-                </>
-            ) : (
-                renderRaySegment({...primaryRed, color: 'white'}, step, false)
-            )}
+            {/* Primary Rays (Top Input) */}
+            {primaryRays.map((ray, idx) => (
+                 showSpectrum 
+                 ? renderRaySegment(ray, step, false, idx)
+                 : renderRaySegment({...ray, color: 'white'}, step, false, idx)
+            ))}
 
-            {/* Secondary Rays (Bottom) - Only if Step >= 4 */}
-            {showSecondary && (
-                 showSpectrum ? (
-                    <>
-                        {renderRaySegment(secondaryRed, step, true)}
-                        {renderRaySegment(secondaryGreen, step, true)}
-                        {renderRaySegment(secondaryViolet, step, true)}
-                    </>
-                ) : (
-                    renderRaySegment({...secondaryRed, color: 'white'}, step, true)
-                )
-            )}
+            {/* Secondary Rays (Bottom Input) */}
+            {secondaryRays.map((ray, idx) => (
+                 showSpectrum 
+                 ? renderRaySegment(ray, step, true, idx)
+                 : renderRaySegment({...ray, color: 'white'}, step, true, idx)
+            ))}
         </g>
 
         {/* --- DRAGGABLE CONTROLS --- */}
@@ -278,47 +360,49 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ inputY, setInputY, 
                  <circle r="12" fill="url(#sunGrad)" stroke="#fcd34d" strokeWidth="2" />
              </g>
 
-             {/* Bottom Handle (Secondary) */}
-             {showSecondary && (
-                 <g transform={`translate(25, ${centerY + inputY})`}>
-                      <line x1={0} y1={-inputY*2} x2={0} y2={0} stroke="#fbbf24" strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
-                      <circle r="8" fill="#fbbf24" opacity="0.8" />
-                 </g>
-             )}
+             {/* Bottom Handle (Secondary) - Visual Indicator */}
+             <g transform={`translate(25, ${centerY + inputY})`}>
+                  <line x1={0} y1={-inputY*2} x2={0} y2={0} stroke="#fbbf24" strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
+                  <circle r="8" fill="#fbbf24" opacity="0.8" />
+             </g>
         </g>
         
         {/* --- LABELS & ORDER LEGEND --- */}
+        {/* Step 3+ : Primary Exits */}
         {(step >= 3) && (
             <g>
                 <text x={primaryLabelX} y={primaryLabelY} fill="white" fontSize="14" fontWeight="bold" textAnchor="middle" filter="drop-shadow(0px 1px 2px black)">
-                    🌈 主虹 (Primary)
+                    🌈 主虹
                 </text>
                 {/* Render the Primary Color Order Legend if spectrum is shown */}
-                {showSpectrum && renderOrderLegend(primaryLabelX, primaryLabelY, true)}
+                {showSpectrum && renderSpectrumLegend(primaryLabelX, primaryLabelY, true)}
                 
-                <text x={primaryRed.back.x + 15} y={primaryRed.back.y} fill="rgba(255,255,255,0.7)" fontSize="10">1次反射</text>
+                <text x={primaryLabelRef.back.x + 15} y={primaryLabelRef.back.y} fill="rgba(255,255,255,0.7)" fontSize="10">1次反射</text>
             </g>
         )}
         
-        {showSecondary && (
+        {/* Step 4+ : Secondary Exits */}
+        {step >= 4 && (
             <g>
                 <text x={secondaryLabelX} y={secondaryLabelY} fill="#f472b6" fontSize="14" fontWeight="bold" textAnchor="middle" filter="drop-shadow(0px 1px 2px black)">
-                    🌈 副虹 (Secondary)
+                    🌈 副虹
                 </text>
                 {/* Render the Secondary Color Order Legend */}
-                {showSpectrum && renderOrderLegend(secondaryLabelX, secondaryLabelY, false)}
+                {showSpectrum && renderSpectrumLegend(secondaryLabelX, secondaryLabelY, false)}
 
-                <text x={secondaryRed.back.x + 10} y={secondaryRed.back.y - 10} fill="rgba(255,255,255,0.5)" fontSize="10">1</text>
-                <text x={secondaryRed.back2!.x} y={secondaryRed.back2!.y - 15} fill="rgba(255,255,255,0.5)" fontSize="10">2</text>
+                <text x={secondaryLabelRef.back.x + 10} y={secondaryLabelRef.back.y - 10} fill="rgba(255,255,255,0.5)" fontSize="10">1</text>
+                <text x={secondaryLabelRef.back2!.x} y={secondaryLabelRef.back2!.y - 15} fill="rgba(255,255,255,0.5)" fontSize="10">2</text>
             </g>
         )}
 
         {/* Info Box */}
         <rect x="10" y="10" width="180" height="90" rx="8" fill="rgba(15, 23, 42, 0.8)" stroke="#334155" strokeWidth="1" />
-        <text x="20" y="32" fill="#38bdf8" fontSize="12" fontWeight="bold">模式: {showSecondary ? "全貌 (主虹 + 副虹)" : "主虹演示"}</text>
+        <text x="20" y="32" fill="#38bdf8" fontSize="12" fontWeight="bold">模式: 双轨演示 (Dual Path)</text>
         <text x="20" y="52" fill="#94a3b8" fontSize="11">⚡️ 光束宽度: {inputY.toFixed(1)}</text>
-        <text x="20" y="68" fill="#ef4444" fontSize="11">⬆️ 上方入射 → 主虹 (红在外)</text>
-        {showSecondary && <text x="20" y="84" fill="#f472b6" fontSize="11">⬇️ 下方入射 → 副虹 (紫在外)</text>}
+        <g fontSize="11">
+             <text x="20" y="68" fill="#fbbf24" opacity="0.9">─ 光线 A (实线): 主虹 (Primary)</text>
+             <text x="20" y="84" fill="#fbbf24" opacity="0.7">┄ 光线 B (虚线): 副虹 (Secondary)</text>
+        </g>
 
       </svg>
     </div>
