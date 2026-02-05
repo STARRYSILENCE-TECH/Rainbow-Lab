@@ -7,8 +7,16 @@ interface Message {
 }
 
 const AiTutor: React.FC = () => {
+  // Check if API Key is present (Vite replaces process.env.API_KEY during build)
+  const hasApiKey = typeof process.env.API_KEY === 'string' && process.env.API_KEY.length > 0;
+
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: '你好！我是光之博士。关于彩虹、光线或者物理，你有什么想问的吗？(Hi! I am Dr. Light. Ask me anything about rainbows!)' }
+    { 
+      role: 'model', 
+      text: hasApiKey 
+        ? '你好！我是光之博士。关于彩虹、光线或者物理，你有什么想问的吗？(Hi! I am Dr. Light. Ask me anything about rainbows!)' 
+        : '你好！我是光之博士。由于未配置 API Key，我目前处于离线模式。不过你依然可以尽情探索上方的物理实验！(AI Offline mode)'
+    }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,15 +35,23 @@ const AiTutor: React.FC = () => {
     const userMsg = input.trim();
     setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
     setInput('');
+    
+    // Graceful fallback if no key
+    if (!hasApiKey) {
+      setTimeout(() => {
+        setMessages(prev => [...prev, { 
+            role: 'model', 
+            text: '💡 这是一个模拟回复：AI 功能目前未激活（缺少 API Key）。请在部署设置中配置 Google Gemini API Key 以解锁智能问答。' 
+        }]);
+      }, 500);
+      return;
+    }
+
     setLoading(true);
 
     try {
-      if (!process.env.API_KEY) {
-        throw new Error("API Key is missing");
-      }
-      
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const model = 'gemini-3-flash-preview'; 
+      const model = 'gemini-3-flash-preview'; // Or gemini-1.5-flash-latest if preferred
 
       const systemPrompt = `
         You are a friendly, enthusiastic physics tutor for teenagers named "Dr. Light". 
@@ -57,7 +73,7 @@ const AiTutor: React.FC = () => {
 
     } catch (error) {
       console.error(error);
-      setMessages(prev => [...prev, { role: 'model', text: '哎呀，我的大脑短路了。请检查API Key配置。(Error connecting to AI)' }]);
+      setMessages(prev => [...prev, { role: 'model', text: '哎呀，我的大脑短路了。请检查网络或 API Key 配置。(Error connecting to AI)' }]);
     } finally {
       setLoading(false);
     }
@@ -68,7 +84,7 @@ const AiTutor: React.FC = () => {
       {/* Header - Compact */}
       <div className="px-3 py-2 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between">
         <h3 className="text-sm font-bold text-sky-400 flex items-center gap-2">
-          🤖 提问 AI 博士
+          {hasApiKey ? '🤖 提问 AI 博士' : '🤖 AI 博士 (离线)'}
         </h3>
         <span className="text-[10px] text-slate-500">Ask Dr. Light</span>
       </div>
@@ -103,13 +119,18 @@ const AiTutor: React.FC = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="为什么天空是蓝色的？"
-            className="flex-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-sm text-white focus:outline-none focus:border-sky-500"
+            placeholder={hasApiKey ? "为什么天空是蓝色的？" : "AI 暂不可用，仅供预览 UI"}
+            disabled={!hasApiKey && messages.length > 2} // Optional: limit interaction if offline
+            className={`flex-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-sm text-white focus:outline-none focus:border-sky-500 ${!hasApiKey ? 'opacity-50' : ''}`}
           />
           <button 
             onClick={handleSend}
-            disabled={loading}
-            className="bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-md text-xs font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
+            disabled={loading || (!hasApiKey && messages.length > 2)}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors disabled:opacity-50 whitespace-nowrap ${
+                hasApiKey 
+                ? 'bg-sky-600 hover:bg-sky-500 text-white' 
+                : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+            }`}
           >
             发送
           </button>
