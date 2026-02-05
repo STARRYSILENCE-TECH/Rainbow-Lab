@@ -14,6 +14,8 @@ const App: React.FC = () => {
   // Micro View State
   const [showSpectrum, setShowSpectrum] = useState<boolean>(false);
   const [inputY, setInputY] = useState<number>(60); 
+  // New: Simulation Mode State (primary | secondary | dual)
+  const [microMode, setMicroMode] = useState<'primary' | 'secondary' | 'dual'>('primary');
 
   // Macro View State
   const [sunAngle, setSunAngle] = useState<number>(20); 
@@ -69,6 +71,7 @@ const App: React.FC = () => {
                         setInputY={setInputY}
                         showSpectrum={showSpectrum} 
                         step={step} 
+                        microMode={microMode}
                     />
                 ) : (
                     <MacroViewCanvas 
@@ -98,6 +101,8 @@ const App: React.FC = () => {
               setInputY={setInputY}
               sunAngle={sunAngle}
               setSunAngle={setSunAngle}
+              microMode={microMode}
+              setMicroMode={setMicroMode}
             />
         </div>
 

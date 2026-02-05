@@ -11,17 +11,19 @@ interface ExplanationPanelProps {
   setInputY: (y: number) => void;
   sunAngle: number;
   setSunAngle: (a: number) => void;
+  microMode: 'primary' | 'secondary' | 'dual';
+  setMicroMode: (m: 'primary' | 'secondary' | 'dual') => void;
 }
 
 const microSteps = [
   {
-    title: "1. 双路进击 (Dual Entry)",
-    content: "为了看懂主虹和副虹的区别，我们同时追踪两束阳光。上方的光束（A）将形成主虹，下方的光束（B）将形成副虹。注意：它们进入水滴的位置是相反的！",
-    highlight: "光线 A 射向水滴上半部，光线 B 射向水滴下半部。"
+    title: "1. 光线入射 (Entry)",
+    content: "我们追踪阳光射入水滴的过程。主虹（Primary）的光线通常从水滴上半部分射入，而副虹（Secondary）的光线则从下半部分射入。",
+    highlight: "主虹走上面，副虹走下面。"
   },
   {
     title: "2. 折射入水 (Refraction)",
-    content: "两束光线进入水滴，发生第一次**折射**。由于水比空气“稠密”，光线都向中心法线方向弯曲。此时白光开始轻微散开。",
+    content: "光线进入水滴，发生第一次**折射**。由于水比空气“稠密”，光线都向中心法线方向弯曲。此时白光开始轻微散开。",
     highlight: "看！它们都钻进了水滴肚子里。"
   },
   {
@@ -31,17 +33,17 @@ const microSteps = [
   },
   {
     title: "4. 分道扬镳 (The Divergence)",
-    content: "关键时刻！上方的光束（主虹）直接折射出去了。但是！下方的光束（副虹）角度太刁钻，它没有出去，而是撞向了水滴顶端，发生了**第二次反射**！",
+    content: "关键时刻！主虹光线直接折射出去了。但是！副虹光线角度太刁钻，它没有出去，而是撞向了水滴顶端，发生了**第二次反射**！",
     highlight: "主虹逃走了，但副虹被困住多弹了一次。"
   },
   {
-    title: "5. 副虹出射 (Secondary Exit)",
-    content: "经过第二次反弹后，副虹的光束终于也折射出去了。因为多了一次反射，它的能量损失更多（更暗），而且出射方向更向上（约50-53度）。",
+    title: "5. 出射与差异 (Exit)",
+    content: "主虹光线以约42度角射出。副虹光线经过两次反射后，以约50-53度角射出，且亮度更暗。",
     highlight: "副虹就像经历了更漫长的迷宫。"
   },
   {
-    title: "6. 颜色大反转 (Color Inversion)",
-    content: "开启光谱！正是因为那多出来的一次反射，副虹的红紫排列顺序被完全**颠倒**了。主虹是“外红内紫”，而副虹变成了“外紫内红”。",
+    title: "6. 颜色秘密 (Color)",
+    content: "开启光谱！由于反射次数不同，颜色的排列顺序也不同。主虹是“外红内紫”，副虹则是相反的“外紫内红”。",
     highlight: "点击“显示光谱”按钮，观察颜色的秘密！"
   }
 ];
@@ -74,7 +76,8 @@ const ExplanationPanel: React.FC<ExplanationPanelProps> = ({
     step, setStep, 
     showSpectrum, setShowSpectrum, 
     inputY, setInputY,
-    sunAngle, setSunAngle
+    sunAngle, setSunAngle,
+    microMode, setMicroMode
 }) => {
   const currentSteps = viewMode === 'micro' ? microSteps : macroSteps;
   const currentInfo = currentSteps[step] || currentSteps[0];
@@ -94,8 +97,6 @@ const ExplanationPanel: React.FC<ExplanationPanelProps> = ({
              if(viewMode === 'micro') {
                  // Step 5 corresponds to index 5. Enable spectrum there.
                  if (prev + 1 === 5) setShowSpectrum(true);
-                 // Reset spectrum if we loop back or strict control needed
-                 // if (prev + 1 < 5) setShowSpectrum(false);
              }
              return prev + 1;
           } else {
@@ -116,7 +117,15 @@ const ExplanationPanel: React.FC<ExplanationPanelProps> = ({
       if (mode === 'micro') {
           setShowSpectrum(false);
           setInputY(60);
+          setMicroMode('primary');
       }
+  };
+
+  const handleMicroModeClick = (mode: 'primary' | 'secondary' | 'dual') => {
+      setMicroMode(mode);
+      setStep(0);
+      setIsPlaying(false);
+      setShowSpectrum(false);
   };
 
   const togglePlay = () => {
@@ -243,6 +252,34 @@ const ExplanationPanel: React.FC<ExplanationPanelProps> = ({
           <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-700/50 backdrop-blur-sm">
             {viewMode === 'micro' ? (
                 <div className="space-y-4">
+                    {/* Micro Mode Switcher */}
+                    <div className="grid grid-cols-3 gap-1 bg-slate-800 p-1 rounded-lg">
+                        <button 
+                            onClick={() => handleMicroModeClick('primary')}
+                            className={`py-1.5 rounded text-xs font-bold transition-all ${
+                                microMode === 'primary' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            🔴 主虹单轨
+                        </button>
+                         <button 
+                            onClick={() => handleMicroModeClick('secondary')}
+                            className={`py-1.5 rounded text-xs font-bold transition-all ${
+                                microMode === 'secondary' ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            🟣 副虹单轨
+                        </button>
+                         <button 
+                            onClick={() => handleMicroModeClick('dual')}
+                            className={`py-1.5 rounded text-xs font-bold transition-all ${
+                                microMode === 'dual' ? 'bg-slate-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            🌈 双轨演示
+                        </button>
+                    </div>
+
                     <div>
                         <label className="flex justify-between text-sm font-bold text-sky-400 mb-2">
                             <span className="flex items-center gap-2">☀️ 阳光入射位置 <span className="text-[10px] text-slate-500 font-normal">(Impact)</span></span>

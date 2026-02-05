@@ -14,8 +14,8 @@ const AiTutor: React.FC = () => {
     { 
       role: 'model', 
       text: hasApiKey 
-        ? '你好！我是光之博士。关于彩虹、光线或者物理，你有什么想问的吗？(Hi! I am Dr. Light. Ask me anything about rainbows!)' 
-        : '你好！我是光之博士。由于未配置 API Key，我目前处于离线模式。不过你依然可以尽情探索上方的物理实验！(AI Offline mode)'
+        ? '你好！我是婷婷老师。关于彩虹、光线或者物理，你有什么想问的吗？(Hi! I am Teacher TingTing. Ask me anything about rainbows!)' 
+        : '你好！我是婷婷老师。由于未配置 API Key，我目前处于离线模式。不过你依然可以尽情探索上方的物理实验！(AI Offline mode)'
     }
   ]);
   const [input, setInput] = useState('');
@@ -54,7 +54,7 @@ const AiTutor: React.FC = () => {
       const model = 'gemini-3-flash-preview'; // Or gemini-1.5-flash-latest if preferred
 
       const systemPrompt = `
-        You are a friendly, enthusiastic physics tutor for teenagers named "Dr. Light". 
+        You are a friendly, enthusiastic physics tutor for teenagers named "Teacher TingTing". 
         Your goal is to explain optical physics (rainbows, light, reflection, refraction) in simple, engaging Chinese.
         Keep answers short (under 100 words), use emojis, and encourage curiosity.
         If the user asks about something unrelated to science, politely steer them back to rainbows or light.
@@ -84,9 +84,9 @@ const AiTutor: React.FC = () => {
       {/* Header - Compact */}
       <div className="px-3 py-2 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between">
         <h3 className="text-sm font-bold text-sky-400 flex items-center gap-2">
-          {hasApiKey ? '🤖 提问 AI 博士' : '🤖 AI 博士 (离线)'}
+          {hasApiKey ? '👩‍🏫 提问婷婷老师' : '👩‍🏫 婷婷老师 (离线)'}
         </h3>
-        <span className="text-[10px] text-slate-500">Ask Dr. Light</span>
+        <span className="text-[10px] text-slate-500">Ask Teacher TingTing</span>
       </div>
       
       {/* Messages - Compact */}
@@ -105,7 +105,7 @@ const AiTutor: React.FC = () => {
         {loading && (
           <div className="flex justify-start">
             <div className="bg-slate-700 text-slate-400 px-3 py-1.5 rounded-xl rounded-bl-none text-[10px] animate-pulse">
-              博士正在思考...
+              婷婷老师正在思考...
             </div>
           </div>
         )}
